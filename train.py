@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # from ray.rllib.agents.ddpg import DDPGTrainer
     # from ray.rllib.agents.dqn.apex import ApexTrainer
     from ray.rllib.agents.ppo.appo import APPOTrainer
-    from envs.train_env import NavigationEnv
+    from envs.env_train import NavigationEnv
 
     args = parser.parse_args()
     eval_cfg = vars(args).copy()
