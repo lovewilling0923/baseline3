@@ -29,8 +29,8 @@ class NavigationEnv(gym.Env):
         obs_space_2 = spaces.Box(
             low=0, high=dmp_far, shape=(dmp_height, dmp_width), dtype=np.float32
         )
-        self.observation_space = spaces.Tuple([obs_space_1, obs_space_2])
-
+        # self.observation_space = spaces.Tuple([obs_space_1, obs_space_2])
+        self.observation_space = obs_space_1
         self.action_dict = {
             "move": [
                 [(A.WALK_DIR, 0), (A.WALK_SPEED, 0)],
@@ -44,13 +44,13 @@ class NavigationEnv(gym.Env):
             #     [(A.JUMP, False)],
             #     [(A.JUMP, True)],
             # ],
-            "turn_lr": [
-                [(A.TURN_LR_DELTA, -2)],
-                [(A.TURN_LR_DELTA, -1)],
-                [(A.TURN_LR_DELTA, 0)],
-                [(A.TURN_LR_DELTA, 1)],
-                [(A.TURN_LR_DELTA, 2)],
-            ],
+            # "turn_lr": [
+            #     [(A.TURN_LR_DELTA, -2)],
+            #     [(A.TURN_LR_DELTA, -1)],
+            #     [(A.TURN_LR_DELTA, 0)],
+            #     [(A.TURN_LR_DELTA, 1)],
+            #     [(A.TURN_LR_DELTA, 2)],
+            # ],
             # "look_ud": [
             #     [(A.LOOK_UD_DELTA, -2)],
             #     [(A.LOOK_UD_DELTA, -1)],
@@ -88,14 +88,13 @@ class NavigationEnv(gym.Env):
         self.start_location = config.get("start_location", [0, 0, 0])
         if self.config.get("record", False):
             self.game.turn_on_record()
-        else:
-            self.game.turn_off_record()
-        self.game.turn_on_depth_map()
+        # self.game.turn_on_depth_map()
         self.game.set_game_replay_suffix(self.replay_suffix)
         self.game.set_game_mode(Game.MODE_NAVIGATION)
         self.game.set_depth_map_size(dmp_width, dmp_height, far=dmp_far)
         self.target_location = config.get("target_location", [0, 0, 0])
         self.start_loc = config.get("start_location", [0, 0, 0])
+        self.game.set_target_location(self.target_location)
 
         # 101 - [x(-100,100) z(-100,100)]
         # 102 - [x(-25,175) z(-50,150)]
@@ -136,10 +135,9 @@ class NavigationEnv(gym.Env):
     def _get_obs(self):
         cur_pos = np.asarray(get_position(self.state))
         tar_pos = np.asarray(self.target_location)
-        return [
-            tar_pos - cur_pos,
-            self.state.depth_map.copy(),
-        ]
+        # self.state.depth_map.copy()
+        return tar_pos - cur_pos
+            
 
     def step(self, action):
         # action = self._action_process(action_idxs)
@@ -176,22 +174,22 @@ class NavigationEnv(gym.Env):
 
         print("Reset for a new game ...")
 
-        if self.episodes <= 500:
-            self.start_loc = random.choice(self.loc_20)
-            self.game.set_episode_timeout(60)
-        elif self.episodes <= 1000:
-            self.start_loc = random.choice(self.loc_50)
-            self.game.set_episode_timeout(120)
+        # if self.episodes <= 500:
+        #     self.start_loc = random.choice(self.loc_20)
+        #     # self.game.set_episode_timeout(60)
+        # elif self.episodes <= 1000:
+        #     self.start_loc = random.choice(self.loc_50)
+        #     # self.game.set_episode_timeout(120)
 
-        elif self.episodes <= 2000:
-            self.start_loc = random.choice(self.loc_80)
-            self.game.set_episode_timeout(180)
-        else:
-            self.start_loc = random.choice(self.outdoor_loc)
-            self.game.set_episode_timeout(300)
+        # elif self.episodes <= 2000:
+        #     self.start_loc = random.choice(self.loc_80)
+        #     # self.game.set_episode_timeout(180)
+        # else:
+        #     self.start_loc = random.choice(self.outdoor_loc)
+        #     self.game.set_episode_timeout(300)
 
-        if self.config.get("in_evaluation",False):
-            self.start_loc = random.choice(self.outdoor_loc)
+        # # if self.config.get("in_evaluation",False):
+        self.start_loc = random.choice(self.outdoor_loc)
 
         self.limit = get_distance(self.target_location, self.start_loc)
 

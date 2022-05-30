@@ -93,12 +93,7 @@ if __name__ == "__main__":
                 "num_workers": args.num_workers,
                 "evaluation_interval": args.eval_interval,
                 "num_gpus": 0,
-                "model": {
-                    # Auto-wrap the custom(!) model with an LSTM.
-                    "use_lstm": True,
-                    # To further customize the LSTM auto-wrapper.
-                    "lstm_cell_size": 64, },
-                "evaluation_config": {"env_config": eval_cfg},
+                "evaluation_config": {"env_config": eval_cfg,"explore":True,},
                 "evaluation_num_workers": 10,
             }
         )
