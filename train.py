@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # from ray.rllib.agents.ddpg import DDPGTrainer
     # from ray.rllib.agents.dqn.apex import ApexTrainer
     from ray.rllib.agents.ppo.appo import APPOTrainer
-    from envs.env_train import NavigationEnv
+    from env_train import NavigationEnv
 
     args = parser.parse_args()
     eval_cfg = vars(args).copy()
@@ -91,10 +91,10 @@ if __name__ == "__main__":
                 "env_config": vars(args),
                 "framework": "torch",
                 "num_workers": args.num_workers,
-                "evaluation_interval": args.eval_interval,
+                # "evaluation_interval": args.eval_interval,
                 "num_gpus": 0,
-                "evaluation_config": {"env_config": eval_cfg,"explore":True,},
-                "evaluation_num_workers": 10,
+                # "evaluation_config": {"env_config": eval_cfg,"explore":True,},
+                # "evaluation_num_workers": 10,
             }
         )
     elif alg == 'impala':
@@ -118,6 +118,8 @@ if __name__ == "__main__":
     else:
         raise ValueError('No such algorithm')
     step = 0
+    if args.reload:
+        trainer.restore(args.reload_dir)
 
     while True:
         step += 1

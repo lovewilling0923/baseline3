@@ -29,8 +29,8 @@ class NavigationEnv(gym.Env):
         obs_space_2 = spaces.Box(
             low=0, high=dmp_far, shape=(dmp_height, dmp_width), dtype=np.float32
         )
-        # self.observation_space = spaces.Tuple([obs_space_1, obs_space_2])
-        self.observation_space = obs_space_1
+        self.observation_space = spaces.Tuple([obs_space_1, obs_space_2])
+        # self.observation_space = obs_space_1
         self.action_dict = {
             "move": [
                 [(A.WALK_DIR, 0), (A.WALK_SPEED, 0)],
@@ -44,13 +44,13 @@ class NavigationEnv(gym.Env):
             #     [(A.JUMP, False)],
             #     [(A.JUMP, True)],
             # ],
-            # "turn_lr": [
-            #     [(A.TURN_LR_DELTA, -2)],
-            #     [(A.TURN_LR_DELTA, -1)],
-            #     [(A.TURN_LR_DELTA, 0)],
-            #     [(A.TURN_LR_DELTA, 1)],
-            #     [(A.TURN_LR_DELTA, 2)],
-            # ],
+            "turn_lr": [
+                [(A.TURN_LR_DELTA, -2)],
+                [(A.TURN_LR_DELTA, -1)],
+                [(A.TURN_LR_DELTA, 0)],
+                [(A.TURN_LR_DELTA, 1)],
+                [(A.TURN_LR_DELTA, 2)],
+            ],
             # "look_ud": [
             #     [(A.LOOK_UD_DELTA, -2)],
             #     [(A.LOOK_UD_DELTA, -1)],
@@ -71,7 +71,7 @@ class NavigationEnv(gym.Env):
                 config.get("base_worker_port", BASE_WORKER_PORT) + config.worker_index
         )
         if self.config.get("in_evaluation", False):
-            self.server_port += 10
+            self.server_port += 100
         print(f">>> New instance {self} on port: {self.server_port}")
         print(
             f"Worker Index: {config.worker_index}, VecEnv Index: {config.vector_index}"
@@ -144,20 +144,22 @@ class NavigationEnv(gym.Env):
         # self.game.make_action({0: action})
         action_list = self._action_process(action)
         self.game.make_action_by_list({0: action_list})
-        self.state = self.game.get_state()
+        state = self.game.get_state()
         done = self.game.is_episode_finished()
 
         self.running_steps += 1
-        cur_pos = get_position(self.state)
+        cur_pos = get_position(state)
         tar_pos = self.target_location
         # reward = -get_distance(cur_pos, tar_pos)
-        reward = 0
-        if get_distance(cur_pos, tar_pos) <= 1:
+        reward = get_distance(get_position(self.state),tar_pos)-get_distance(cur_pos,tar_pos)
+        self.state = state
+        if get_distance(cur_pos, tar_pos) <= 2:
             reward += 100
             done = True
-        if get_distance(cur_pos, tar_pos) >= self.limit * 1.5:
-            done = True
-            reward = -100
+        # if get_distance(cur_pos, tar_pos) >= self.limit * 1.5:
+        #     done = True
+        #     reward = -100
+
         if done:
             if self.print_log:
                 Start = np.round(np.asarray(self.start_loc), 2).tolist()
@@ -189,6 +191,7 @@ class NavigationEnv(gym.Env):
         #     self.game.set_episode_timeout(300)
 
         # # if self.config.get("in_evaluation",False):
+        self.state = self.game.get_state()
         self.start_loc = random.choice(self.outdoor_loc)
 
         self.limit = get_distance(self.target_location, self.start_loc)
