@@ -17,7 +17,7 @@ class NavigationEnv(gym.Env):
         self.config = config
         self.render_scale = config.get("render_scale", 1)
 
-        env_seed = config.get("random_seed", 0) + config.get("worker_index", 0)
+        env_seed = config.get("random_seed", 0) + config.worker_index
 
         # only 240 * 320 can be aotu transform into conv model
         dmp_width = config["dmp_width"]
@@ -54,7 +54,7 @@ class NavigationEnv(gym.Env):
         self.print_log = config.get("detailed_log", False)
         # self.seed(env_seed)
         self.server_port = (
-                config.get("base_worker_port", BASE_WORKER_PORT) + config.get("worker_index", 0)
+                config.get("base_worker_port", BASE_WORKER_PORT) + config.worker_index
         )
         if self.config.get("in_evaluation", False):
             self.server_port += 100
@@ -68,6 +68,8 @@ class NavigationEnv(gym.Env):
             engine_dir=config["engine_dir"],
             server_port=self.server_port,
         )
+        self.seed(env_seed)
+        self.game.set_random_seed(env_seed)
         self.game.set_map_id(config["map_id"])
         self.game.set_episode_timeout(config["timeout"])
         # self.game.set_random_seed(env_seed)
@@ -111,7 +113,7 @@ class NavigationEnv(gym.Env):
             elif get_distance(loc, self.target_location) <= 60:
                 self.loc_80.append(loc)
 
-        self.limit = 100
+        self.limit = 500
 
         self.game.init()
         self.episodes = 0
@@ -201,8 +203,8 @@ parser.add_argument("-S", "--random-seed", type=int, default=0)
 parser.add_argument("--start-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--target-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--base-worker-port", type=int, default=50000)
-parser.add_argument("--engine-dir", type=str, default="/root/game-engine")
-parser.add_argument("--map-dir", type=str, default="/root/map-data")
+parser.add_argument("--engine-dir", type=str, default="./wildscav-linux-backend-v1.0")
+parser.add_argument("--map-dir", type=str, default="./map-data")
 parser.add_argument("--num-workers", type=int, default=10)
 parser.add_argument("--eval-interval", type=int, default=None)
 parser.add_argument("--record", action="store_true")
