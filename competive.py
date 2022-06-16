@@ -50,9 +50,8 @@ class BattleEnv(gym.Env):
                 [(A.TURN_LR_DELTA, 0.5)],
                 [(A.TURN_LR_DELTA, -0.2)],
                 [(A.TURN_LR_DELTA, 0.2)],
-                [(A.TURN_LR_DELTA, -1)],
-                [(A.TURN_LR_DELTA, 0)],
-                [(A.TURN_LR_DELTA, 1)],
+                [(A.LOOK_UD_DELTA, -1)],
+                [(A.LOOK_UD_DELTA, 1)],
                 [(A.LOOK_UD_DELTA, -0.2)],
                 [(A.LOOK_UD_DELTA, 0)],
                 [(A.LOOK_UD_DELTA, 0.2)],
@@ -170,8 +169,8 @@ class BattleEnv(gym.Env):
         action_list = {0:action_0}
         for i in range(1,self.config["num_agents"]):
             action_list[i]=self._action_process({
-            "move": random.randint(0,5),
-            "turn_lr_or_up": random.randint(0,5),
+            "move": 0,
+            "turn_lr_or_up": 0,
             "attack_or_reload":1
             })
         self.game.make_action_by_list(action_list)
