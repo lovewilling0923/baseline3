@@ -5,7 +5,7 @@ import gym
 import numpy as np
 from gym import spaces
 from ray.rllib.env import EnvContext
-from inspirai_fps.utils import get_distance, get_position
+from inspirai_fps.utils import get_distance, get_position,get_picth_yaw
 from inspirai_fps.gamecore import Game
 from inspirai_fps.gamecore import ActionVariable as A
 
@@ -24,11 +24,12 @@ class NavigationEnv(gym.Env):
         dmp_height = config["dmp_height"]
         dmp_far = config["dmp_far"]
 
-        obs_space_1 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,), dtype=np.float32)
+        obs_space_1 = spaces.Box(low=-100, high=100, shape=(3,), dtype=np.float32)
+        obs_space_3 = spaces.Box(low=0, high=360, shape=(2,), dtype=np.float32)
         obs_space_2 = spaces.Box(
             low=0, high=dmp_far, shape=(dmp_height, dmp_width), dtype=np.float32
         )
-        self.observation_space = spaces.Tuple([obs_space_1, obs_space_2])
+        self.observation_space = spaces.Tuple([obs_space_1, obs_space_2, obs_space_3])
         # self.observation_space = obs_space_1
         self.action_dict = {
             "move": [
@@ -43,6 +44,12 @@ class NavigationEnv(gym.Env):
                 [(A.TURN_LR_DELTA, -1)],
                 [(A.TURN_LR_DELTA, 0)],
                 [(A.TURN_LR_DELTA, 1)],
+                [(A.TURN_LR_DELTA, -0.4)],
+                [(A.TURN_LR_DELTA, 0)],
+                [(A.TURN_LR_DELTA, 0.4)],
+                [(A.TURN_LR_DELTA, -0.2)],
+                [(A.TURN_LR_DELTA, 0)],
+                [(A.TURN_LR_DELTA, 0.2)],
             ],
         }
 
@@ -122,8 +129,11 @@ class NavigationEnv(gym.Env):
     def _get_obs(self):
         cur_pos = np.asarray(get_position(self.state))
         tar_pos = np.asarray(self.target_location)
+        pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
+
         return [
             tar_pos - cur_pos,
+            np.asarray([self.state.yaw,yaw]),
             self.state.depth_map.copy(),
         ]
 
@@ -139,8 +149,10 @@ class NavigationEnv(gym.Env):
         cur_pos = get_position(state)
         tar_pos = self.target_location
         # reward = -get_distance(cur_pos, tar_pos)
-        reward = -1
+        reward = -0.1
         reward += get_distance(get_position(self.state), tar_pos) - get_distance(cur_pos, tar_pos)
+        pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
+        reward -= abs(state.yaw-yaw)%180
         self.state = state
         if get_distance(cur_pos, tar_pos) <= 1:
             reward += 1000
@@ -198,14 +210,14 @@ import sys
 parser = argparse.ArgumentParser()
 parser.add_argument("-T", "--timeout", type=int, default=60 * 5)  # The time length of one game (sec)
 parser.add_argument("-R", "--time-scale", type=int, default=10)
-parser.add_argument("-M", "--map-id", type=int, default=1)
+parser.add_argument("-M", "--map-id", type=int, default=101)
 parser.add_argument("-S", "--random-seed", type=int, default=0)
 parser.add_argument("--start-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--target-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--base-worker-port", type=int, default=50000)
-parser.add_argument("--engine-dir", type=str, default="./wildscav-linux-backend-v1.0")
-parser.add_argument("--map-dir", type=str, default="./map-data")
-parser.add_argument("--num-workers", type=int, default=10)
+parser.add_argument("--engine-dir", type=str, default="/root/game-engine")
+parser.add_argument("--map-dir", type=str, default="/root/map-data")
+parser.add_argument("--num-workers", type=int, default=80)
 parser.add_argument("--eval-interval", type=int, default=None)
 parser.add_argument("--record", action="store_true")
 parser.add_argument("--replay-suffix", type=str, default="")
