@@ -24,9 +24,9 @@ class NavigationEnv(gym.Env):
         dmp_height = config["dmp_height"]
         dmp_far = config["dmp_far"]
 
-        obs_space_1 = spaces.Box(low=-100, high=100, shape=(3,), dtype=np.float32)
-        obs_space_3 = spaces.Box(low=0, high=360, shape=(2,), dtype=np.float32)
-        obs_space_2 = spaces.Box(
+        obs_space_1 = spaces.Box(low=-500, high=500, shape=(3,), dtype=np.float32)
+        obs_space_2 = spaces.Box(low=-180, high=180, shape=(2,), dtype=np.float32)
+        obs_space_3 = spaces.Box(
             low=0, high=dmp_far, shape=(dmp_height, dmp_width), dtype=np.float32
         )
         self.observation_space = spaces.Tuple([obs_space_1, obs_space_2, obs_space_3])
@@ -41,15 +41,7 @@ class NavigationEnv(gym.Env):
                 # [(A.JUMP, True)],
             ],
             "turn_lr": [
-                [(A.TURN_LR_DELTA, -1)],
                 [(A.TURN_LR_DELTA, 0)],
-                [(A.TURN_LR_DELTA, 1)],
-                [(A.TURN_LR_DELTA, -0.4)],
-                [(A.TURN_LR_DELTA, 0)],
-                [(A.TURN_LR_DELTA, 0.4)],
-                [(A.TURN_LR_DELTA, -0.2)],
-                [(A.TURN_LR_DELTA, 0)],
-                [(A.TURN_LR_DELTA, 0.2)],
             ],
         }
 
@@ -141,6 +133,22 @@ class NavigationEnv(gym.Env):
         # action = self._action_process(action_idxs)
         # self.game.make_action({0: action})
         action_list = self._action_process(action)
+        cur_pos = np.asarray(get_position(self.state))
+        tar_pos = np.asarray(self.target_location)
+        pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
+        
+        cur_pitch,cur_yaw = state.pitch,state.yaw
+        yaw = yaw - cur_yaw
+        if yaw>=180:
+            yaw-=360
+        elif yaw<=-180:
+            yaw+=360
+        yaw/=5
+        if yaw>1:
+            yaw=1
+        elif yaw<-1:
+            yaw=-1
+        action_list[-1] =(A.TURN_LR_DELTA, yaw)
         self.game.make_action_by_list({0: action_list})
         state = self.game.get_state()
         done = self.game.is_episode_finished()
@@ -149,17 +157,13 @@ class NavigationEnv(gym.Env):
         cur_pos = get_position(state)
         tar_pos = self.target_location
         # reward = -get_distance(cur_pos, tar_pos)
-        reward = -0.1
+        reward = -1
         reward += get_distance(get_position(self.state), tar_pos) - get_distance(cur_pos, tar_pos)
         pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
-        reward -= abs(state.yaw-yaw)%180
         self.state = state
         if get_distance(cur_pos, tar_pos) <= 1:
-            reward += 1000
+            reward += 100
             done = True
-        if get_distance(cur_pos, tar_pos) >= self.limit * 1.5:
-            done = True
-            reward = -100
 
         if done:
             if self.print_log:
@@ -168,7 +172,7 @@ class NavigationEnv(gym.Env):
                 End = np.round(np.asarray(get_position(self.state)), 2).tolist()
                 Step = self.running_steps
                 Reward = reward
-                print(f"{Start=}\t{Target=}\t{End=}\t{Step=}\t{Reward=}")
+                print(f"{Start=}{Target=}{End=}{Step=}{Reward=}{yaw=}")
             self.episode_reward += reward
 
         return self._get_obs(), reward, done, {}
@@ -208,15 +212,15 @@ import re
 import sys
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-T", "--timeout", type=int, default=60 * 5)  # The time length of one game (sec)
+parser.add_argument("-T", "--timeout", type=int, default=60 * 3)  # The time length of one game (sec)
 parser.add_argument("-R", "--time-scale", type=int, default=10)
-parser.add_argument("-M", "--map-id", type=int, default=101)
+parser.add_argument("-M", "--map-id", type=int, default=14)
 parser.add_argument("-S", "--random-seed", type=int, default=0)
 parser.add_argument("--start-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--target-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--base-worker-port", type=int, default=50000)
-parser.add_argument("--engine-dir", type=str, default="/root/game-engine")
-parser.add_argument("--map-dir", type=str, default="/root/map-data")
+parser.add_argument("--engine-dir", type=str, default="../wilderness-scavenger/wildscav-linux-backend")
+parser.add_argument("--map-dir", type=str, default="../wilderness-scavenger/map_data")
 parser.add_argument("--num-workers", type=int, default=80)
 parser.add_argument("--eval-interval", type=int, default=None)
 parser.add_argument("--record", action="store_true")
@@ -229,8 +233,8 @@ parser.add_argument("--stop-timesteps", type=int, default=1e8)
 parser.add_argument("--stop-reward", type=float, default=98)
 parser.add_argument("--use-depth", action="store_true")
 parser.add_argument("--stop-episodes", type=float, default=200000)
-parser.add_argument("--dmp-width", type=int, default=10)
-parser.add_argument("--dmp-height", type=int, default=2)
+parser.add_argument("--dmp-width", type=int, default=42)
+parser.add_argument("--dmp-height", type=int, default=42)
 parser.add_argument("--dmp-far", type=int, default=200)
 parser.add_argument("--train-batch-size", type=int, default=4000)
 parser.add_argument("--reload", type=bool, default=False)
