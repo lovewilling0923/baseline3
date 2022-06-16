@@ -5,7 +5,7 @@ import gym
 import numpy as np
 from gym import spaces
 from ray.rllib.env import EnvContext
-from inspirai_fps.utils import get_distance, get_position
+from inspirai_fps.utils import get_distance, get_position,get_picth_yaw
 from inspirai_fps.gamecore import Game
 from inspirai_fps.gamecore import ActionVariable as A
 
@@ -25,8 +25,8 @@ class BattleEnv(gym.Env):
         dmp_far = config["dmp_far"]
 
         obs_space_1 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,), dtype=np.float32)
-        obs_space_2 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(7,), dtype=np.float32)
-        obs_space_3 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,5), dtype=np.float32)
+        obs_space_2 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(4,), dtype=np.float32)
+        obs_space_3 = spaces.Box(low=-np.Inf, high=np.Inf, shape=(6,), dtype=np.float32)
         obs_space_4 = spaces.Box(
             low=0, high=dmp_far, shape=(dmp_height, dmp_width), dtype=np.float32
         )
@@ -39,21 +39,27 @@ class BattleEnv(gym.Env):
                 [(A.WALK_DIR, 90), (A.WALK_SPEED, 8)],
                 [(A.WALK_DIR, 180), (A.WALK_SPEED, 8)],
                 [(A.WALK_DIR, 270), (A.WALK_SPEED, 8)],
-                [(A.JUMP, True)],
             ],
             "turn_lr_or_up": [
+                [(A.TURN_LR_DELTA, 0)],
+                [(A.TURN_LR_DELTA, -1)],
+                [(A.TURN_LR_DELTA, 1)],
+                [(A.TURN_LR_DELTA, -2)],
+                [(A.TURN_LR_DELTA, 2)],
+                [(A.TURN_LR_DELTA, -0.5)],
+                [(A.TURN_LR_DELTA, 0.5)],
+                [(A.TURN_LR_DELTA, -0.2)],
+                [(A.TURN_LR_DELTA, 0.2)],
                 [(A.TURN_LR_DELTA, -1)],
                 [(A.TURN_LR_DELTA, 0)],
                 [(A.TURN_LR_DELTA, 1)],
-                [(A.LOOK_UD_DELTA, -1)],
+                [(A.LOOK_UD_DELTA, -0.2)],
                 [(A.LOOK_UD_DELTA, 0)],
-                [(A.LOOK_UD_DELTA, 1)],
+                [(A.LOOK_UD_DELTA, 0.2)],
             ],
             "attack_or_reload":[
                 [(A.ATTACK,True)],
                 [(A.ATTACK,False)],
-                [(A.RELOAD,True)],
-                [(A.RELOAD,False)],
             ]
 
         }
@@ -97,9 +103,8 @@ class BattleEnv(gym.Env):
 
         self.agent_id = set()
         self.agent_id.add(0)
-        
         for agent_id in range(1, config["num_agents"]):
-            self.game.add_agent()
+            self.game.add_agent(num_clip_ammo=10000)
             self.agent_id.add(agent_id)
             x = np.random.randint(-70, -30)
             y = 5
@@ -114,34 +119,40 @@ class BattleEnv(gym.Env):
         self.episode_reward = 0
 
     def _get_obs(self,state):
-        self.np_enemy_states = [
-                [
+        self.np_enemy_states = []
+                
+        for enemy in state.enemy_states.values():
+             if enemy.health > 0:
+                self.np_enemy_states.append([
                     enemy.position_x,
                     enemy.position_y,
                     enemy.position_z,
                     enemy.health/100.,
+                    enemy.id,
                     1 if enemy.is_invincible else 0,
-
-                ]
-            for enemy in state.enemy_states.values()]
+                ])
+        
         # enemy_distance = [get_distance([enemy[0],enemy[1],enemy[2]], get_position(state)) for enemy in self.np_enemy_states]
 
-        enemy_states = np.asarray([[0 for _ in range(5)] for _ in range(3)])
-
         self.np_enemy_states.sort(key= lambda x:get_distance([x[0],x[1],x[2]], get_position(state)))
-        for i in range(len(self.np_enemy_states)):
-            if i>=3:
-                break
-            enemy_states[i] = self.np_enemy_states[i]
+
+        if self.np_enemy_states:
+            enemy_states = np.asarray(self.np_enemy_states[0])
+            self.enemy_id = enemy_states[4]
+        else:
+            enemy_states = np.asarray([0 for i in range(6)])
+            self.enemy_id = 0
+        
+
         cur_pos = np.asarray(get_position(state))
         self_future = []
+
+        enemy_pos = enemy_states[0:3]
+        op_pitch,op_yaw = get_picth_yaw(enemy_pos[0]-cur_pos[0],enemy_pos[1]-cur_pos[1],enemy_pos[2]-cur_pos[2])
         self_future.append(state.yaw)
         self_future.append(state.pitch)
-        self_future.append(state.weapon_ammo)
-        self_future.append(state.spare_ammo)
-        self_future.append(1 if state.is_attack else 0)
-        self_future.append(1 if state.hit_enemy else 0)
-        self_future.append(1 if state.is_invincible else 0)
+        self_future.append(op_pitch)
+        self_future.append(op_yaw)
         self_future = np.asarray(self_future)
 
         return [
@@ -187,10 +198,10 @@ class BattleEnv(gym.Env):
         """
         state_all = self.game.get_state_all()
         reward =0
-        for agent_id in range(1,self.config["num_agents"]):
-            if state_all[agent_id].is_waiting_respawn and not self.state_all[agent_id].is_waiting_respawn:
-                reward+=100
-        if state.hit_enemy:
+
+        if state_all[self.enemy_id].is_waiting_respawn and not self.state_all[self.enemy_id].is_waiting_respawn:
+            reward+=100
+        if state.hit_enemy and state.hit_enemy_id ==self.enemy_id:
             reward+=1
         return  reward
 
@@ -202,6 +213,7 @@ class BattleEnv(gym.Env):
 
         self.running_steps = 0
         self.episodes += 1
+        self.enemy_id = 0
         return self._get_obs(self.state)
 
     def close(self):
@@ -224,8 +236,8 @@ parser.add_argument("-T", "--timeout", type=int, default=60 * 3)  # The time len
 parser.add_argument("-R", "--time-scale", type=int, default=10)
 parser.add_argument("-M", "--map-id", type=int, default=103)
 parser.add_argument("-S", "--random-seed", type=int, default=0)
-parser.add_argument("--start-location", type=float, nargs=3, default=[-54, 2.55, 2])
-parser.add_argument("--target-location", type=float, nargs=3, default=[-54, 2.55, 2])
+parser.add_argument("--start-location", type=float, nargs=3, default=[0, 0, 0])
+parser.add_argument("--target-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--base-worker-port", type=int, default=50000)
 parser.add_argument("--engine-dir", type=str, default="/root/game-engine")
 parser.add_argument("--map-dir", type=str, default="/root/map-data")
