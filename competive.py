@@ -50,8 +50,6 @@ class BattleEnv(gym.Env):
                 [(A.TURN_LR_DELTA, 0.5)],
                 [(A.TURN_LR_DELTA, -0.2)],
                 [(A.TURN_LR_DELTA, 0.2)],
-                [(A.LOOK_UD_DELTA, -1)],
-                [(A.LOOK_UD_DELTA, 1)],
                 [(A.LOOK_UD_DELTA, -0.2)],
                 [(A.LOOK_UD_DELTA, 0)],
                 [(A.LOOK_UD_DELTA, 0.2)],
@@ -102,12 +100,13 @@ class BattleEnv(gym.Env):
 
         self.agent_id = set()
         self.agent_id.add(0)
+        #中心点为[-50,0,0]
         for agent_id in range(1, config["num_agents"]):
             self.game.add_agent(num_clip_ammo=10000)
             self.agent_id.add(agent_id)
-            x = np.random.randint(-70, -30)
+            x = np.random.randint(-60, -40)
             y = 5
-            z = np.random.randint(-20, 20)
+            z = np.random.randint(-10, 10)
             self.game.set_start_location([x, y, z], agent_id)
 
 
