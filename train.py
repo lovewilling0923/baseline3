@@ -183,7 +183,25 @@ class NavigationEnv(gym.Env):
         
 
         self.game.set_start_location(self.start_loc)
-        self.target_location = random.choice(self.outdoor_loc)
+        
+        self.loc_20 = []
+        self.loc_50 = []
+        self.loc_80 = []
+        for loc in self.outdoor_loc:
+            if get_distance(loc, self.target_location) <= 20:
+                self.loc_20.append(loc)
+            elif get_distance(loc, self.target_location) <= 60:
+                self.loc_50.append(loc)
+            elif get_distance(loc, self.target_location) <= 500:
+                self.loc_80.append(loc)
+        if random.random()<=0.2:
+            tar_loc = self.loc_20
+        elif random.random()<=0.5:
+            tar_loc = self.loc_50
+        else:
+            tar_loc = self.loc_80
+            
+        self.target_location = random.choice(tar_loc)
         self.game.set_target_location(self.target_location)
         self.limit = get_distance(self.target_location, self.start_loc)
         
