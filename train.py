@@ -33,7 +33,7 @@ class NavigationEnv(gym.Env):
         # self.observation_space = obs_space_1
         self.action_dict = {
             "move": [
-                [(A.WALK_DIR, 0), (A.WALK_SPEED, 0)],
+                #[(A.WALK_DIR, 0), (A.WALK_SPEED, 0)],
                 [(A.WALK_DIR, 0), (A.WALK_SPEED, 8)],
                 [(A.WALK_DIR, 90), (A.WALK_SPEED, 8)],
                 [(A.WALK_DIR, 180), (A.WALK_SPEED, 8)],
@@ -137,7 +137,7 @@ class NavigationEnv(gym.Env):
         tar_pos = np.asarray(self.target_location)
         pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
         
-        cur_pitch,cur_yaw = state.pitch,state.yaw
+        cur_pitch,cur_yaw = self.state.pitch,self.state.yaw
         yaw = yaw - cur_yaw
         if yaw>=180:
             yaw-=360
@@ -159,7 +159,6 @@ class NavigationEnv(gym.Env):
         # reward = -get_distance(cur_pos, tar_pos)
         reward = -1
         reward += get_distance(get_position(self.state), tar_pos) - get_distance(cur_pos, tar_pos)
-        pitch,yaw = get_picth_yaw(tar_pos[0]-cur_pos[0],tar_pos[1]-cur_pos[1],tar_pos[2]-cur_pos[2])
         self.state = state
         if get_distance(cur_pos, tar_pos) <= 1:
             reward += 100
@@ -219,9 +218,9 @@ parser.add_argument("-S", "--random-seed", type=int, default=0)
 parser.add_argument("--start-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--target-location", type=float, nargs=3, default=[0, 0, 0])
 parser.add_argument("--base-worker-port", type=int, default=50000)
-parser.add_argument("--engine-dir", type=str, default="../wilderness-scavenger/wildscav-linux-backend")
-parser.add_argument("--map-dir", type=str, default="../wilderness-scavenger/map_data")
-parser.add_argument("--num-workers", type=int, default=80)
+parser.add_argument("--engine-dir", type=str, default="/root/game-engine")
+parser.add_argument("--map-dir", type=str, default="/root/map-data")
+parser.add_argument("--num-workers", type=int, default=180)
 parser.add_argument("--eval-interval", type=int, default=None)
 parser.add_argument("--record", action="store_true")
 parser.add_argument("--replay-suffix", type=str, default="")
@@ -311,7 +310,7 @@ if __name__ == "__main__":
     step = 0
     if args.reload:
         trainer.restore(args.reload_dir)
-
+    r = -20000
     while True:
         step += 1
         result = trainer.train()
@@ -321,10 +320,11 @@ if __name__ == "__main__":
         s = result["agent_timesteps_total"]
         print(f"current_alg:{alg},current_training_steps:{s},episodes_total:{e},current_reward:{reward},current_len:{len1}")
 
-        if step != 0 and step % 200 == 0:
+        if step != 0 and reward>=r:
+            r = reward
             os.makedirs(args.checkpoint_dir + f"{alg}" + str(args.map_id), exist_ok=True)
             trainer.save(args.checkpoint_dir + f"{alg}" + str(args.map_id))
-            print("trainer save a checkpoint")
+            print("trainer save a checkpoint,")
         if result["agent_timesteps_total"] >= args.stop_timesteps:
             os.makedirs(args.checkpoint_dir + f"{alg}" + str(args.map_id), exist_ok=True)
             trainer.save(args.checkpoint_dir + f"{alg}" + str(args.map_id))
